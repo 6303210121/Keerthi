@@ -1,0 +1,35 @@
+*** Settings ***
+Library    SSHLibrary
+ 
+*** Variables ***
+${router_ip}	10.133.35.158
+${username}        admin
+${password}        tcs123
+ 
+*** Test Cases ***
+Retrieve OSPF database
+    ${output} =    Connect to Router    ${router_ip}
+    Log    Connected to Router: ${router_ip}	console=yes
+    Get OSPF Database	${output}
+    Disconnect From Router
+ 
+*** Keywords ***
+Connect to Router
+    [Arguments]    ${router_ip}
+    [Documentation]    Connect to a router via SSH
+    Open Connection    ${router_ip}
+    ${output} =    Login    ${username}    ${password}
+    Log To Console	${output}
+    [Return]    ${output}
+ 
+Get OSPF Database
+    [Arguments]    ${output}
+    [Documentation]    Retrieve information about OSPF database
+    ${output} =    Execute Command    show ip ospf database  
+    Log To Console	${output}
+    [Return]    ${output}
+ 
+Disconnect From Router
+    [Documentation]    Close SSH connection to a router
+    ${output} =    Close Connection
+    [Return]    ${output}
