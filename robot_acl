@@ -1,0 +1,50 @@
+***Settings ***
+Library    SSHLibrary
+Library	   String
+ 
+*** Variables ***
+${DUT1_IP}         10.133.35.143
+${DUT1_USER}       admin
+${DUT1_PASSWORD}   tcs123
+${ACL_NAME}	acl1
+${ACL_RULE}	 permit icmp 192.168.11.1/24 any
+ 
+*** Test Cases ***
+Configure and Check ACL
+    [Documentation]    Test ACL Configuration
+    Connect to Device    ${DUT1_IP}
+    Configure ACL on Device
+    Ping Test
+    Disconnect From Device
+ 
+*** Keywords ***
+Connect to Device
+    [Arguments]    ${ip}
+    Open Connection    ${ip}
+    Login    ${DUT1_USER}    ${DUT1_PASSWORD}
+    Log    Connected to device: ${ip}
+
+Configure ACL on Device
+    Log    Configure ACL on Device1: DUT1
+    ${result} =    Execute Command    show access-list ${ACL_NAME} 	
+    Log		${result}	console=yes	 
+    Log         ACL configuration command:${ACL_RULE}	console=yes
+    Should Contain	${ACL_RULE}	${result}
+    Run Keyword If    "${result}" == ""    Log To Console       ACL is configured       ELSE    Log To Console  ACL is not Configured
+    Log    ACL is configured successfully       console=yes
+
+Ping Test
+    ${ping_output} =	 Execute Command	 ping 192.168.60.1
+    Log    ${ping_output}    console=yes
+ 
+    ${transmitted} =    Get Regexp Matches    ${ping_output}    (\d+)(?: packets)? transmitted
+    ${received} =    Get Regexp Matches    ${ping_output}    (\d+)(?: packets)? received
+ 
+    ${transmitted_count} =    Set Variable If    ${transmitted}    ${transmitted[0][0]}    Not Found
+    ${received_count} =    Set Variable If    ${received}    ${received[0][0]}    Not Found
+ 
+    Log To Console    Transmitted packets: ${transmitted_count}
+    Log To Console    Received packets: ${received_count}
+
+Disconnect From Device
+    Close All Connections
