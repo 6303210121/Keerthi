@@ -1,0 +1,28 @@
+// main_test.go
+package main
+
+import (
+    "testing"
+)
+
+func TestExecuteSSHCommand(t *testing.T) {
+    // Example test case (this is a placeholder, as real SSH connections in tests are not advised)
+    ip := "10.133.35.158"
+    port := "22"
+    user := "admin"
+    password := "tcs"
+    command := "echo 'Test'"
+
+    // Call the function you want to test
+    output, err := ExecuteSSHCommand(ip, port, user, password, command)
+
+    // Check for errors and expected output
+    if err != nil {
+        t.Errorf("ExecuteSSHCommand returned an unexpected error: %v", err)
+    }
+
+    expectedOutput := "Test output" // Adjust this based on the expected real output of your command
+    if output != expectedOutput {
+        t.Errorf("ExecuteSSHCommand returned unexpected output: got %v want %v", output, expectedOutput)
+    }
+}
