@@ -1,35 +1,48 @@
-*** Settings ***
-Library    SSHLibrary
+package debug
  
-*** Variables ***
-${router_ip}	10.133.35.158
-${username}        admin
-${password}        tcs123
+import (
+	"fmt"
+	"golang.org/x/crypto/ssh"
+	"testing"
+	"log"
+)
  
-*** Test Cases ***
-Retrieve OSPF database
-    ${output} =    Connect to Router    ${router_ip}
-    Log    Connected to Router: ${router_ip}	console=yes
-    Get OSPF Database	${output}
-    Disconnect From Router
+func TestConnectToRouter(t *testing.T){
+	// SSH server details
+	serverAddress := "10.133.35.158"
+	serverUsername := "admin"
+	serverPassword := "tcs123"
+	sshCommand := "show ip interface brief"
  
-*** Keywords ***
-Connect to Router
-    [Arguments]    ${router_ip}
-    [Documentation]    Connect to a router via SSH
-    Open Connection    ${router_ip}
-    ${output} =    Login    ${username}    ${password}
-    Log To Console	${output}
-    [Return]    ${output}
+	// Create SSH client configuration
+	config := &ssh.ClientConfig{
+		User: serverUsername,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(serverPassword),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
  
-Get OSPF Database
-    [Arguments]    ${output}
-    [Documentation]    Retrieve information about OSPF database
-    ${output} =    Execute Command    show ip ospf database  
-    Log To Console	${output}
-    [Return]    ${output}
+	// Connect to the SSH server
+	client, err := ssh.Dial("tcp", serverAddress+":22", config)
+	if err != nil {
+		log.Fatalf("Failed to connect to the server: %v", err)
+	}
+	defer client.Close()
  
-Disconnect From Router
-    [Documentation]    Close SSH connection to a router
-    ${output} =    Close Connection
-    [Return]    ${output}
+	// Create a new SSH session
+	session, err := client.NewSession()
+	if err != nil {
+		log.Fatalf("Failed to create session: %v", err)
+	}
+	defer session.Close()
+ 
+	// Run the SSH command
+	output, err := session.CombinedOutput(sshCommand)
+	if err != nil {
+		log.Fatalf("Failed to execute command: %v", err)
+	}
+ 
+	// Print the command output
+	fmt.Printf("Command Output:\n%s\n", output)
+}
