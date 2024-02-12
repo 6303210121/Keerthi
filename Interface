@@ -1,0 +1,74 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/Juniper/go-netconf"
+	"github.com/Juniper/go-Juniper/junose/nxos"
+)
+
+func main() {
+	// Device credentials (replace with your actual credentials and use secure methods like SSH key authentication if possible)
+	username := "admin"
+	password := "tcs123"
+
+	// Router definitions
+	routers := map[string]*nxos.Device{
+		"dut1": {
+			Host:  "10.133.35.158",
+			Port:  22,
+			User:  username,
+			Pass:  password,
+		},
+		"dut2": {
+			Host:  "10.133.35.143",
+			Port:  22,
+			User:  username,
+			Pass:  password,
+		},
+		"dut3": {
+			Host:  "10.133.35.156",
+			Port:  22,
+			User:  username,
+			Pass:  password,
+		},
+	}
+
+	// Loop through routers and connect
+	for name, router := range routers {
+		// Connect to the router using Netconf
+		conn, err := netconf.Dial(context.Background(), router.Host, router.Port, router.User, router.Pass)
+		if err != nil {
+			log.Fatalf("Error connecting to %s: %v", name, err)
+		}
+		defer conn.Close()
+
+		// Create Netconf client
+		client := nxos.New(conn)
+
+		// Configure interfaces based on datafile (consider using variables here)
+		interfaces := map[string]map[string]string{
+			"dut1": {"Ethernet1/5": "192.168.60.1/255.255.255.0"},
+			"dut2": {"Ethernet1/9": "192.168.11.1/255.255.255.0"},
+			"dut3": {
+				"Ethernet1/5": "192.168.60.2/255.255.255.0",
+				"Ethernet1/9": "192.168.11.2/255.255.255.0",
+			},
+		}
+
+		for intf, ip := range interfaces[name] {
+			// Build configuration command (use template or loop for multiple links)
+			cmd := fmt.Sprintf("set interfaces ethernet %s unit 0 address %s", intf, ip)
+
+			// Execute configuration command
+			err = client.ConfigureCli(cmd)
+			if err != nil {
+				log.Printf("Error configuring interface %s on %s: %v", intf, name, err)
+			} else {
+				log.Printf("Configured interface %s on %s with IP %s", intf, name, ip)
+			}
+		}
+	}
+}
