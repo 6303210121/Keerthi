@@ -1,74 +1,142 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"golang.org/x/crypto/ssh"
 	"log"
-
-	"github.com/Juniper/go-netconf"
-	"github.com/Juniper/go-Juniper/junose/nxos"
 )
 
-func main() {
-	// Device credentials (replace with your actual credentials and use secure methods like SSH key authentication if possible)
-	username := "admin"
-	password := "tcs123"
+// Define structs for devices, interfaces, and connections
+type Device struct {
+	Alias       string
+	Connections map[string]Connection
+}
 
-	// Router definitions
-	routers := map[string]*nxos.Device{
-		"dut1": {
-			Host:  "10.133.35.158",
-			Port:  22,
-			User:  username,
-			Pass:  password,
+type Connection struct {
+	IP       string
+	Port     int
+	Protocol string
+}
+
+type Topology struct {
+	DeviceConnections map[string]map[string]string
+}
+
+type TestCase struct {
+	Device1    string
+	Device2    string
+	Interface1 string
+	Interface2 string
+}
+
+// Function to execute command on a device
+func executeCommand(device Device, command string) (string, error) {
+	connConfig := &ssh.ClientConfig{
+		User: device.Connections["cli"].Username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(device.Connections["cli"].Password),
 		},
-		"dut2": {
-			Host:  "10.133.35.143",
-			Port:  22,
-			User:  username,
-			Pass:  password,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", device.Connections["cli"].IP, device.Connections["cli"].Port), connConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to dial: %v", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	output, err := session.CombinedOutput(command)
+	if err != nil {
+		return "", fmt.Errorf("failed to run command: %v", err)
+	}
+
+	return string(output), nil
+}
+
+func main() {
+	// Define devices
+	devices := map[string]Device{
+		"n9k1": {
+			Alias: "dut1",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.158", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
 		},
-		"dut3": {
-			Host:  "10.133.35.156",
-			Port:  22,
-			User:  username,
-			Pass:  password,
+		"NEXUS9k_4": {
+			Alias: "dut2",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.143", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
+		},
+		"n9k3": {
+			Alias: "dut3",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.156", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
 		},
 	}
 
-	// Loop through routers and connect
-	for name, router := range routers {
-		// Connect to the router using Netconf
-		conn, err := netconf.Dial(context.Background(), router.Host, router.Port, router.User, router.Pass)
-		if err != nil {
-			log.Fatalf("Error connecting to %s: %v", name, err)
-		}
-		defer conn.Close()
-
-		// Create Netconf client
-		client := nxos.New(conn)
-
-		// Configure interfaces based on datafile (consider using variables here)
-		interfaces := map[string]map[string]string{
-			"dut1": {"Ethernet1/5": "192.168.60.1/255.255.255.0"},
-			"dut2": {"Ethernet1/9": "192.168.11.1/255.255.255.0"},
-			"dut3": {
-				"Ethernet1/5": "192.168.60.2/255.255.255.0",
-				"Ethernet1/9": "192.168.11.2/255.255.255.0",
+	// Define topology
+	topology := Topology{
+		DeviceConnections: map[string]map[string]string{
+			"n9k1": {
+				"Ethernet1/5": "uut1_uut3_1",
 			},
-		}
+			"NEXUS9k_4": {
+				"Ethernet1/9": "uut2_uut3_1",
+			},
+			"n9k3": {
+				"Ethernet1/5": "uut3_uut1_1",
+				"Ethernet1/9": "uut3_uut2_1",
+			},
+		},
+	}
 
-		for intf, ip := range interfaces[name] {
-			// Build configuration command (use template or loop for multiple links)
-			cmd := fmt.Sprintf("set interfaces ethernet %s unit 0 address %s", intf, ip)
+	// Define test case
+	testCase := TestCase{
+		Device1:    "n9k1",
+		Device2:    "n9k3",
+		Interface1: "Ethernet1/5",
+		Interface2: "Ethernet1/9",
+	}
 
-			// Execute configuration command
-			err = client.ConfigureCli(cmd)
-			if err != nil {
-				log.Printf("Error configuring interface %s on %s: %v", intf, name, err)
-			} else {
-				log.Printf("Configured interface %s on %s with IP %s", intf, name, ip)
-			}
+	// Print connections
+	fmt.Println("Connections:")
+	for device, conn := range devices {
+		fmt.Printf("Device: %s\n", device)
+		for _, connection := range conn.Connections {
+			fmt.Printf("  - IP: %s, Port: %d, Protocol: %s\n", connection.IP, connection.Port, connection.Protocol)
 		}
+	}
+
+	// Print topology
+	fmt.Println("\nTopology:")
+	for device, connections := range topology.DeviceConnections {
+		fmt.Printf("Device: %s\n", device)
+		for intf, link := range connections {
+			fmt.Printf("  - Interface: %s, Link: %s\n", intf, link)
+		}
+	}
+
+	// Print test case
+	fmt.Println("\nTest Case:")
+	fmt.Printf("Device 1: %s, Interface 1: %s\n", testCase.Device1, testCase.Interface1)
+	fmt.Printf("Device 2: %s, Interface 2: %s\n", testCase.Device2, testCase.Interface2)
+
+	// Execute command on a device
+	command := "show version"
+	for _, device := range devices {
+		output, err := executeCommand(device, command)
+		if err != nil {
+			log.Printf("Error executing command on %s: %v", device.Alias, err)
+			continue
+		}
+		fmt.Printf("Output from %s:\n%s\n", device.Alias, output)
 	}
 }
