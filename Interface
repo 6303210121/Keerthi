@@ -2,69 +2,63 @@ package main
 
 import (
     "fmt"
-    "testing"
-
-    "github.com/google/ondatra"
+    "golang.org/x/crypto/ssh"
 )
 
-func TestEthernetConnections(t *testing.T) {
-    // Initialize Ondatra testbed
-    tb, err := ondatra.Init()
-    if err != nil {
-        t.Fatalf("Failed to initialize testbed: %v", err)
-    }
-    defer tb.Close()
-
-    // Retrieve devices from the testbed
-    dut1 := tb.Device("dut1")
-    dut2 := tb.Device("dut2")
-    dut3 := tb.Device("dut3")
-
-    // Retrieve interface information from the data file
-    device1Intf := "Ethernet1/1"
-    device1IP := "192.168.30.2"
-    device2Intf1 := "Ethernet1/1"
-    device2IP1 := "192.168.30.1"
-    device2Intf2 := "Ethernet1/7"
-    device2IP2 := "192.168.70.1"
-    device3Intf := "Ethernet1/7"
-    device3IP := "192.168.50.2"
-
-    // Configure device interfaces with IP addresses
-    err = dut1.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device1Intf, device1IP))
-    if err != nil {
-        t.Fatalf("Failed to configure interface on dut1: %v", err)
-    }
-    err = dut2.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device2Intf1, device2IP1))
-    if err != nil {
-        t.Fatalf("Failed to configure interface on dut2: %v", err)
-    }
-    err = dut2.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device2Intf2, device2IP2))
-    if err != nil {
-        t.Fatalf("Failed to configure interface on dut2: %v", err)
-    }
-    err = dut3.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device3Intf, device3IP))
-    if err != nil {
-        t.Fatalf("Failed to configure interface on dut3: %v", err)
+func main() {
+    // Define device connection information
+    devices := map[string]map[string]string{
+        "dut1": {
+            "ip":       "10.133.35.158",
+            "username": "admin",
+            "password": "tcs123",
+        },
+        "dut2": {
+            "ip":       "10.133.35.143",
+            "username": "admin",
+            "password": "tcs123",
+        },
+        "dut3": {
+            "ip":       "10.133.35.139",
+            "username": "admin",
+            "password": "tcs123",
+        },
     }
 
-    // Verify connectivity between devices
-    // You can perform ping or other tests here
+    // Connect to each device and configure interfaces
+    for alias, info := range devices {
+        fmt.Printf("Connecting to %s...\n", alias)
+        conn, err := ssh.Dial("tcp", info["ip"]+":22", &ssh.ClientConfig{
+            User: info["username"],
+            Auth: []ssh.AuthMethod{
+                ssh.Password(info["password"]),
+            },
+            HostKeyCallback: ssh.InsecureIgnoreHostKey(), // WARNING: Insecure, use for testing purposes only
+        })
+        if err != nil {
+            fmt.Printf("Failed to connect to %s: %v\n", alias, err)
+            continue
+        }
+        defer conn.Close()
 
-    // Example: Ping from device1 to device2
-    result, err := dut1.Exec("ping " + device2IP1)
-    if err != nil {
-        t.Fatalf("Failed to ping from dut1 to dut2: %v", err)
+        session, err := conn.NewSession()
+        if err != nil {
+            fmt.Printf("Failed to create session for %s: %v\n", alias, err)
+            continue
+        }
+        defer session.Close()
+
+        // Configure device interfaces with IP addresses
+        intf := "Ethernet1/1"
+        ipAddr := "192.168.30.2"
+        err = session.Run(fmt.Sprintf("configure terminal\ninterface %s\nip address %s 255.255.255.0\nend\n", intf, ipAddr))
+        if err != nil {
+            fmt.Printf("Failed to configure interface on %s: %v\n", alias, err)
+            continue
+        }
+
+        // Additional configurations and tests can be added here
+
+        fmt.Printf("Successfully configured interface on %s\n", alias)
     }
-    if !result.Success {
-        t.Fatalf("Ping from dut1 to dut2 failed: %s", result.Stderr)
-    }
-
-    // Add more tests as needed
-
-    // Clean up: Remove configurations
-    dut1.Config("no interface " + device1Intf)
-    dut2.Config("no interface " + device2Intf1)
-    dut2.Config("no interface " + device2Intf2)
-    dut3.Config("no interface " + device3Intf)
 }
