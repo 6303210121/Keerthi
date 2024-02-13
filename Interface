@@ -1,4 +1,4 @@
-package main
+package debug
 
 import (
     "fmt"
@@ -132,8 +132,8 @@ func TestDeviceConnections(t *testing.T) {
         defer e.Close()
 
         // Example: Ping from one device to another using the interface IP
-        e.Expect("#", 10*time.Second) // Provide timeout duration
-        e.Send(fmt.Sprintf("ping %s\n", toDevice.IP))
+        e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide timeout duration
+        e.Send(fmt.Sprintf("ping 192.168.30.1\n"))
         output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide timeout duration
         t.Logf("Ping from %s to %s using interface %s - Output:\n%s", fromDevice.Alias, toDevice.Alias, fromInterface, output)
     }
