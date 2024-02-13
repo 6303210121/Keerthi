@@ -1,77 +1,148 @@
-package main
+package debug
 
 import (
-    "fmt"
-    "golang.org/x/crypto/ssh"
+	"fmt"
+	"golang.org/x/crypto/ssh"
+	"log"
+    "testing"
 )
 
-func main() {
-    // Define device connection information
-    devices := map[string]map[string]string{
-        "dut1": {
-            "ip":       "10.133.35.158",
-            "username": "admin",
-            "password": "tcs123",
-        },
-        "dut2": {
-            "ip":       "10.133.35.143",
-            "username": "admin",
-            "password": "tcs123",
-        },
-        "dut3": {
-            "ip":       "10.133.35.139",
-            "username": "admin",
-            "password": "tcs123",
-        },
-    }
-
-    // Connect routers and configure interfaces
-    for alias, info := range devices {
-        fmt.Printf("Connecting to %s...\n", alias)
-        conn, err := ssh.Dial("tcp", info["ip"]+":22", &ssh.ClientConfig{
-            User: info["username"],
-            Auth: []ssh.AuthMethod{
-                ssh.Password(info["password"]),
-            },
-            HostKeyCallback: ssh.InsecureIgnoreHostKey(), // WARNING: Insecure, use for testing purposes only
-        })
-        if err != nil {
-            fmt.Printf("Failed to connect to %s: %v\n", alias, err)
-            continue
-        }
-        defer conn.Close()
-
-        session, err := conn.NewSession()
-        if err != nil {
-            fmt.Printf("Failed to create session for %s: %v\n", alias, err)
-            continue
-        }
-        defer session.Close()
-
-        // Configure device interface with IP address
-        intf, ipAddr := getInterfaceAndIPAddress(alias)
-        err = session.Run(fmt.Sprintf("configure terminal\ninterface %s\nip address %s 255.255.255.0\nno shutdown\nend\n", intf, ipAddr))
-        if err != nil {
-            fmt.Printf("Failed to configure interface on %s: %v\n", alias, err)
-            continue
-        }
-
-        // Additional configurations and tests can be added here
-
-        fmt.Printf("Successfully configured interface on %s\n", alias)
-    }
+// Define structs for devices, interfaces, and connections
+type Device struct {
+	Alias       string
+	Connections map[string]Connection
 }
 
-// Function to get interface and IP address based on device alias
-func getInterfaceAndIPAddress(alias string) (string, string) {
-    switch alias {
-    case "dut1":
-        return "Ethernet1/1", "192.168.30.2"
-    case "dut2":
-        return "Ethernet1/1", "192.168.30.1"
-    case "dut3":
-        return "Ethernet1/1", "192.168.50.2"
-    default:
-        return "", ""
-    }
+type Connection struct {
+	IP       string
+	Port     int
+	Protocol string
+        Username string
+        Password string
+}
+
+type Topology struct {
+	DeviceConnections map[string]map[string]string
+}
+
+type TestCase struct {
+	Device1    string
+	Device2    string
+	Interface1 string
+	Interface2 string
+}
+
+// Function to execute command on a device
+func executeCommand(device Device, command string) (string, error) {
+	connConfig := &ssh.ClientConfig{
+		User: device.Connections["cli"].Username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(device.Connections["cli"].Password),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", device.Connections["cli"].IP, device.Connections["cli"].Port), connConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to dial: %v", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+        if command == "ping" {
+                command = "ping 12.12.12.2"
+        }
+ 
+	output, err := session.CombinedOutput(command)
+	if err != nil {
+		return "", fmt.Errorf("failed to run command: %v", err)
+	}
+
+	return string(output), nil
+}
+
+func TestConnectToRouter1(t *testing.T) {
+	// Define devices
+	devices := map[string]Device{
+		"n9k1": {
+			Alias: "dut1",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.158", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
+		},
+		"NEXUS9k_4": {
+			Alias: "dut2",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.143", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
+		},
+		"n9k3": {
+			Alias: "dut3",
+			Connections: map[string]Connection{
+				"cli": {IP: "10.133.35.156", Port: 22, Protocol: "ssh", Username: "admin", Password: "tcs123"},
+			},
+		},
+	}
+
+	// Define topology
+	topology := Topology{
+		DeviceConnections: map[string]map[string]string{
+			"n9k1": {
+				"Ethernet1/5": "uut1_uut3_1",
+			},
+			"NEXUS9k_4": {
+				"Ethernet1/9": "uut2_uut3_1",
+			},
+			"n9k3": {
+				"Ethernet1/5": "uut3_uut1_1",
+				"Ethernet1/9": "uut3_uut2_1",
+			},
+		},
+	}
+
+	// Define test case
+	testCase := TestCase{
+		Device1:    "n9k1",
+		Device2:    "n9k3",
+		Interface1: "Ethernet1/5",
+		Interface2: "Ethernet1/9",
+	}
+
+	// Print connections
+	fmt.Println("Connections:")
+	for device, conn := range devices {
+		fmt.Printf("Device: %s\n", device)
+		for _, connection := range conn.Connections {
+			fmt.Printf("  - IP: %s, Port: %d, Protocol: %s\n", connection.IP, connection.Port, connection.Protocol)
+		}
+	}
+
+	// Print topology
+	fmt.Println("\nTopology:")
+	for device, connections := range topology.DeviceConnections {
+		fmt.Printf("Device: %s\n", device)
+		for intf, link := range connections {
+			fmt.Printf("  - Interface: %s, Link: %s\n", intf, link)
+		}
+	}
+
+	// Print test case
+	fmt.Println("\nTest Case:")
+	fmt.Printf("Device 1: %s, Interface 1: %s\n", testCase.Device1, testCase.Interface1)
+	fmt.Printf("Device 2: %s, Interface 2: %s\n", testCase.Device2, testCase.Interface2)
+
+	// Execute command on a device
+	command := "show version"
+	for _, device := range devices {
+		output, err := executeCommand(device, command)
+		if err != nil {
+			log.Printf("Error executing command on %s: %v", device.Alias, err)
+			continue
+		}
+		fmt.Printf("Output from %s:\n%s\n", device.Alias, output)
+	}
 }
