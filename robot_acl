@@ -34,11 +34,11 @@ devices:
     type: nxos
 
 
-  n9k3:
+  n9k2:
     alias: 'dut3'
     connections:
       cli:
-        ip: 10.133.35.156
+        ip: 10.133.35.139
         port: 22
         protocol: ssh
 
@@ -55,20 +55,20 @@ devices:
 topology:
   n9k1:
     interfaces:
-      Ethernet1/5:
+      Ethernet1/1:
         link: uut1_uut3_1
         type: ethernet
   NEXUS9k_4:
     interfaces:
-      Ethernet1/9:
+      Ethernet1/7:
         link: uut2_uut3_1
         type: ethernet
-  n9k3:
+  n9k2:
     interfaces:
-      Ethernet1/5:
+      Ethernet1/1:
         link: uut3_uut1_1
         type: ethernet
-      Ethernet1/9:
+      Ethernet1/7:
         link: uut3_uut2_1
         type: ethernet
 
@@ -76,15 +76,15 @@ topology:
 
 datafile
 device1:
-    intf: "ethernet1/5"
-    ip_address: "192.168.60.1"
+    intf: "ethernet1/1"
+    ip_address: "192.168.30.2"
 device2:
-    intf1: "ethernet1/5"
-    ip_address1: "192.168.60.2"
-    intf2: "ethernet1/9"
-    ip_address2: "192.168.11.1"
+    intf1: "ethernet1/1"
+    ip_address1: "192.168.30.1"
+    intf2: "ethernet1/7"
+    ip_address2: "192.168.70.1"
 device3:
-    intf: "ethernet1/9"
-    ip_address: "192.168.11.2"
+    intf: "ethernet1/7"
+    ip_address: "192.168.50.2"
 subnet_mask: "255.255.255.0"
 
