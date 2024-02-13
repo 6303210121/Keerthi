@@ -50,17 +50,9 @@ func connectToDevice(device Device) (*expect.GExpect, error) {
         return nil, fmt.Errorf("failed to connect to device %s: %v", device.Alias, err)
     }
 
-    // Start an SSH session
-    session, err := conn.NewSession()
-    if err != nil {
-        conn.Close()
-        return nil, fmt.Errorf("failed to start session with device %s: %v", device.Alias, err)
-    }
-
     // Create expect instance to interact with the session
-    e, _, err := expect.SpawnSSH(session, 10*time.Second)
+    e, _, err := expect.SpawnSSH(conn, 10*time.Second) // Pass 'conn' instead of 'session'
     if err != nil {
-        session.Close()
         conn.Close()
         return nil, fmt.Errorf("failed to start expect session with device %s: %v", device.Alias, err)
     }
@@ -140,9 +132,9 @@ func TestDeviceConnections(t *testing.T) {
         defer e.Close()
 
         // Example: Ping from one device to another using the interface IP
-        e.Expect("#")
+        e.Expect("#", 10*time.Second) // Provide timeout duration
         e.Send(fmt.Sprintf("ping %s\n", toDevice.IP))
-        output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second)
+        output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide timeout duration
         t.Logf("Ping from %s to %s using interface %s - Output:\n%s", fromDevice.Alias, toDevice.Alias, fromInterface, output)
     }
 }
