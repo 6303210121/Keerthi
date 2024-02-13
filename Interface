@@ -1,4 +1,4 @@
-package main
+package debug
 
 import (
     "fmt"
@@ -133,7 +133,7 @@ func TestDeviceConnections(t *testing.T) {
 
         // Example: Ping from one device to another using the interface IP
         e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide regular expression
-        e.Send(fmt.Sprintf("ping %s\n", toDevice.IP))
+        e.Send(fmt.Sprintf("ping %s\n", fromInterface))
         output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide regular expression
         t.Logf("Ping from %s to %s using interface %s - Output:\n%s", fromDevice.Alias, toDevice.Alias, fromInterface, output)
     }
