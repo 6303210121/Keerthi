@@ -1,1 +1,67 @@
+package main
+
+import (
+	"fmt"
+	"os/exec"
+	"strings"
+	"testing"
+)
+
+// Define device struct
+type Device struct {
+	Intf       string
+	IPAddress  string
+	Intf2      string
+	IPAddress2 string
+}
+
+// Define ping test function
+func TestPing(t *testing.T) {
+	// Define devices data
+	devices := map[string]Device{
+		"device1": {"ethernet1/1", "192.168.30.2", "", ""},
+		"device2": {"ethernet1/1", "192.168.30.1", "ethernet1/7", "192.168.70.1"},
+		"device3": {"ethernet1/7", "192.168.50.2", "", ""},
+	}
+
+	// Loop through devices and perform ping tests
+	for name, device := range devices {
+		t.Run(name, func(t *testing.T) {
+			var ipAddresses []string
+			if device.IPAddress != "" {
+				ipAddresses = append(ipAddresses, device.IPAddress)
+			}
+			if device.IPAddress2 != "" {
+				ipAddresses = append(ipAddresses, device.IPAddress2)
+			}
+
+			for _, ip := range ipAddresses {
+				cmd := exec.Command("ping", "-c", "4", ip)
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Errorf("Error pinging %s: %v", ip, err)
+				} else {
+					fmt.Printf("Ping results for %s:\n%s\n", ip, string(output))
+					if strings.Contains(string(output), "0% packet loss") {
+						fmt.Printf("Ping successful to %s\n", ip)
+					} else {
+						fmt.Printf("Ping failed to %s\n", ip)
+					}
+				}
+			}
+		})
+	}
+}
+
+func main() {
+	// Run the test
+	err := testMain()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func testMain() error {
+	return testing.Main(func(pat, str string) (bool, error) { return true, nil }, nil, nil, nil)
+}
 
