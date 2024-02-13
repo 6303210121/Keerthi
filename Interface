@@ -1,67 +1,70 @@
 package main
 
 import (
-	"fmt"
-	"os/exec"
-	"strings"
-	"testing"
+    "fmt"
+    "testing"
+
+    "github.com/google/ondatra"
 )
 
-// Define device struct
-type Device struct {
-	Intf       string
-	IPAddress  string
-	Intf2      string
-	IPAddress2 string
+func TestEthernetConnections(t *testing.T) {
+    // Initialize Ondatra testbed
+    tb, err := ondatra.Init()
+    if err != nil {
+        t.Fatalf("Failed to initialize testbed: %v", err)
+    }
+    defer tb.Close()
+
+    // Retrieve devices from the testbed
+    dut1 := tb.Device("dut1")
+    dut2 := tb.Device("dut2")
+    dut3 := tb.Device("dut3")
+
+    // Retrieve interface information from the data file
+    device1Intf := "Ethernet1/1"
+    device1IP := "192.168.30.2"
+    device2Intf1 := "Ethernet1/1"
+    device2IP1 := "192.168.30.1"
+    device2Intf2 := "Ethernet1/7"
+    device2IP2 := "192.168.70.1"
+    device3Intf := "Ethernet1/7"
+    device3IP := "192.168.50.2"
+
+    // Configure device interfaces with IP addresses
+    err = dut1.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device1Intf, device1IP))
+    if err != nil {
+        t.Fatalf("Failed to configure interface on dut1: %v", err)
+    }
+    err = dut2.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device2Intf1, device2IP1))
+    if err != nil {
+        t.Fatalf("Failed to configure interface on dut2: %v", err)
+    }
+    err = dut2.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device2Intf2, device2IP2))
+    if err != nil {
+        t.Fatalf("Failed to configure interface on dut2: %v", err)
+    }
+    err = dut3.Config(fmt.Sprintf("interface %s\n ip address %s 255.255.255.0", device3Intf, device3IP))
+    if err != nil {
+        t.Fatalf("Failed to configure interface on dut3: %v", err)
+    }
+
+    // Verify connectivity between devices
+    // You can perform ping or other tests here
+
+    // Example: Ping from device1 to device2
+    result, err := dut1.Exec("ping " + device2IP1)
+    if err != nil {
+        t.Fatalf("Failed to ping from dut1 to dut2: %v", err)
+    }
+    if !result.Success {
+        t.Fatalf("Ping from dut1 to dut2 failed: %s", result.Stderr)
+    }
+
+    // Add more tests as needed
+
+    // Clean up: Remove configurations
+    dut1.Config("no interface " + device1Intf)
+    dut2.Config("no interface " + device2Intf1)
+    dut2.Config("no interface " + device2Intf2)
+    dut3.Config("no interface " + device3Intf)
 }
-
-// Define ping test function
-func TestPing(t *testing.T) {
-	// Define devices data
-	devices := map[string]Device{
-		"device1": {"ethernet1/1", "192.168.30.2", "", ""},
-		"device2": {"ethernet1/1", "192.168.30.1", "ethernet1/7", "192.168.70.1"},
-		"device3": {"ethernet1/7", "192.168.50.2", "", ""},
-	}
-
-	// Loop through devices and perform ping tests
-	for name, device := range devices {
-		t.Run(name, func(t *testing.T) {
-			var ipAddresses []string
-			if device.IPAddress != "" {
-				ipAddresses = append(ipAddresses, device.IPAddress)
-			}
-			if device.IPAddress2 != "" {
-				ipAddresses = append(ipAddresses, device.IPAddress2)
-			}
-
-			for _, ip := range ipAddresses {
-				cmd := exec.Command("ping", "-c", "4", ip)
-				output, err := cmd.CombinedOutput()
-				if err != nil {
-					t.Errorf("Error pinging %s: %v", ip, err)
-				} else {
-					fmt.Printf("Ping results for %s:\n%s\n", ip, string(output))
-					if strings.Contains(string(output), "0% packet loss") {
-						fmt.Printf("Ping successful to %s\n", ip)
-					} else {
-						fmt.Printf("Ping failed to %s\n", ip)
-					}
-				}
-			}
-		})
-	}
-}
-
-func main() {
-	// Run the test
-	err := testMain()
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func testMain() error {
-	return testing.Main(func(pat, str string) (bool, error) { return true, nil }, nil, nil, nil)
-}
-
