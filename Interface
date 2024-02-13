@@ -1,141 +1,151 @@
 package debug
- 
+
 import (
-        "fmt"
-        "golang.org/x/crypto/ssh"
-        "log"
-        "testing"
+    "fmt"
+    "golang.org/x/crypto/ssh"
+    "log"
+    "testing"
 )
- 
+
 // Define structs for devices, interfaces, and connections
 type Device struct {
-        Alias       string
-        Connections map[string]string // Use map directly for connections
+    Alias       string
+    Connections map[string]string // Use map directly for connections
 }
- 
+
 type Topology struct {
-        DeviceConnections map[string]map[string]string
+    DeviceConnections map[string]map[string]string
 }
- 
+
 type TestCase struct {
-        Device1    string
-        Device2    string
-        Interface1 string
-        Interface2 string
+    Device1    string
+    Device2    string
+    Interface1 string
+    Interface2 string
 }
- 
+
 // Function to execute command on a device
 func executeCommand(device Device, command string) (string, error) {
-        conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", device.Connections["cliIP"]), &ssh.ClientConfig{
-                User: device.Connections["cliUsername"],
-                Auth: []ssh.AuthMethod{
-                        ssh.Password(device.Connections["cliPassword"]),
-                },
-                HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-        })
-        if err != nil {
-                return "", fmt.Errorf("failed to dial: %v", err)
-        }
-        defer conn.Close()
- 
-        session, err := conn.NewSession()
-        if err != nil {
-                return "", fmt.Errorf("failed to create session: %v", err)
-        }
-        defer session.Close()
- 
-        output, err := session.CombinedOutput(command)
-        if err != nil {
-                return "", fmt.Errorf("failed to run command: %v", err)
-        }
- 
-        return string(output), nil
+    conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:22", device.Connections["cliIP"]), &ssh.ClientConfig{
+        User: device.Connections["cliUsername"],
+        Auth: []ssh.AuthMethod{
+            ssh.Password(device.Connections["cliPassword"]),
+        },
+        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+    })
+    if err != nil {
+        return "", fmt.Errorf("failed to dial: %v", err)
+    }
+    defer conn.Close()
+
+    session, err := conn.NewSession()
+    if err != nil {
+        return "", fmt.Errorf("failed to create session: %v", err)
+    }
+    defer session.Close()
+
+    output, err := session.CombinedOutput(command)
+    if err != nil {
+        return "", fmt.Errorf("failed to run command: %v", err)
+    }
+
+    return string(output), nil
 }
- 
+
 func TestConnectToRouter(t *testing.T) {
-        // Define devices
-        devices := map[string]Device{
-                "n9k1": {
-                        Alias: "dut1",
-                        Connections: map[string]string{
-                                "cliIP":       "10.133.35.158",
-                                "cliUsername": "admin",
-                                "cliPassword": "tcs123",
-                        },
-                },
-                "NEXUS9k_4": {
-                        Alias: "dut2",
-                        Connections: map[string]string{
-                                "cliIP":       "10.133.35.143",
-                                "cliUsername": "admin",
-                                "cliPassword": "tcs123",
-                        },
-                },
-                "n9k2": {
-                        Alias: "dut3",
-                        Connections: map[string]string{
-                                "cliIP":       "10.133.35.139",
-                                "cliUsername": "admin",
-                                "cliPassword": "tcs123",
-                        },
-                },
+    // Define devices
+    devices := map[string]Device{
+        "n9k1": {
+            Alias: "dut1",
+            Connections: map[string]string{
+                "cliIP":       "10.133.35.158",
+                "cliUsername": "admin",
+                "cliPassword": "tcs123",
+            },
+        },
+        "NEXUS9k_4": {
+            Alias: "dut2",
+            Connections: map[string]string{
+                "cliIP":       "10.133.35.143",
+                "cliUsername": "admin",
+                "cliPassword": "tcs123",
+            },
+        },
+        "n9k2": {
+            Alias: "dut3",
+            Connections: map[string]string{
+                "cliIP":       "10.133.35.139",
+                "cliUsername": "admin",
+                "cliPassword": "tcs123",
+            },
+        },
+    }
+
+    // Define topology
+    topology := Topology{
+        DeviceConnections: map[string]map[string]string{
+            "n9k1": {
+                "Ethernet1/1": "uut1_uut3_1",
+            },
+            "NEXUS9k_4": {
+                "Ethernet1/7": "uut2_uut3_1",
+            },
+            "n9k2": {
+                "Ethernet1/1": "uut3_uut1_1",
+                "Ethernet1/7": "uut3_uut2_1",
+            },
+        },
+    }
+
+    // Define test case
+    testCase := TestCase{
+        Device1:    "n9k1",
+        Device2:    "NEXUS9K_4",
+        Interface1: "Ethernet1/1",
+        Interface2: "Ethernet1/7",
+    }
+
+    // Print test case
+    fmt.Println("\nTest Case:")
+    fmt.Printf("Device 1: %s, Interface 1: %s\n", testCase.Device1, testCase.Interface1)
+    fmt.Printf("Device 2: %s, Interface 2: %s\n", testCase.Device2, testCase.Interface2)
+
+    // Connect routers through interfaces
+    for _, device := range devices {
+        interfaceName, found := topology.DeviceConnections[device.Alias][testCase.Interface1]
+        if found {
+            // Extract IP address from the datafile based on the device alias
+            var ipAddress string
+            switch device.Alias {
+            case "dut1":
+                ipAddress = "192.168.30.2"
+            case "dut2":
+                ipAddress = "192.168.30.1"
+            case "dut3":
+                ipAddress = "192.168.70.1"
+            }
+
+            command := fmt.Sprintf("configure terminal\ninterface %s\nip address %s %s\nno shutdown\nend\n", interfaceName, ipAddress, "255.255.255.0")
+            output, err := executeCommand(device, command)
+            if err != nil {
+                log.Printf("Error configuring interface on %s: %v", device.Alias, err)
+                continue
+            }
+            fmt.Printf("Output from %s:\n%s\n", device.Alias, output)
+        } else {
+            log.Printf("Interface %s not found on %s", testCase.Interface1, device.Alias)
         }
- 
-        // Define topology
-        topology := Topology{
-                DeviceConnections: map[string]map[string]string{
-                        "n9k1": {
-                                "Ethernet1/1": "uut1_uut3_1",
-                        },
-                        "NEXUS9k_4": {
-                                "Ethernet1/7": "uut2_uut3_1",
-                        },
-                        "n9k2": {
-                                "Ethernet1/1": "uut3_uut1_1",
-                                "Ethernet1/7": "uut3_uut2_1",
-                        },
-                },
-        }
- 
-        // Define test case
-        testCase := TestCase{
-                Device1:    "n9k1",
-                Device2:    "NEXUS9K_4",
-                Interface1: "Ethernet1/1",
-                //Interface2: "Ethernet1/7",
-        }
- 
-        // Print test case
-        fmt.Println("\nTest Case:")
-        fmt.Printf("Device 1: %s, Interface 1: %s\n", testCase.Device1, testCase.Interface1)
-//      fmt.Printf("Device 2: %s, Interface 2: %s\n", testCase.Device2, testCase.Interface2)
- 
-        // Connect routers through interfaces
-        for _, device := range devices {
-                interfaceName, found := topology.DeviceConnections[device.Alias][testCase.Interface1]
-                if found {
-                        command := fmt.Sprintf("show ip int br; interface %s; ip address %s %s", interfaceName, "192.168.60.1", "255.255.255.0")
-                        output, err := executeCommand(device, command)
-                        if err != nil {
-                              log.Printf("Error configuring interface on %s: %v", device.Alias, err)
-                                continue
-                      }
-                      fmt.Printf("Output from %s:\n%s\n", device.Alias, output)
-                } else {
-                      log.Printf("Interface %s not found on %s", testCase.Interface1, device.Alias)
-                }
-                        
-        }
- 
-        // Ping from one router to another
-        //sourceDevice := devices[testCase.Device1]
-        destDevice := devices[testCase.Device2]
-        pingCommand := fmt.Sprintf("ping %s", "12.12.12.2") // Ping the IP address assigned to the interface on the other router
-        output, err := executeCommand(destDevice, pingCommand)
- 
-        if err != nil {
-                log.Printf("Error executing ping command from %s to %s: %v", testCase.Device1, testCase.Device2, err)
-                return
-        }
-        fmt.Printf("Ping Test Results from %s to %s:\n%s\n", testCase.Device1, testCase.Device2, output)
+
+    }
+
+    // Ping from one router to another
+    destDevice := devices[testCase.Device2]
+    pingCommand := fmt.Sprintf("ping %s", "192.168.30.1") // Ping the IP address assigned to the interface on the other router
+    output, err := executeCommand(destDevice, pingCommand)
+
+    if err != nil {
+        log.Printf("Error executing ping command from %s to %s: %v", testCase.Device1, testCase.Device2, err)
+        return
+    }
+    fmt.Printf("Ping Test Results from %s to %s:\n%s\n", testCase.Device1, testCase.Device2, output)
 }
