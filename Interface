@@ -1,65 +1,3 @@
-package debug
-
-import (
-    "fmt"
-    "regexp"
-    "testing"
-    "time"
-
-    "golang.org/x/crypto/ssh"
-    "github.com/google/goexpect"
-)
-
-// Define device structure
-type Device struct {
-    Alias       string
-    IP          string
-    Port        int
-    Username    string
-    Password    string
-}
-
-// Define interface structure
-type Interface struct {
-    Name        string
-    IPAddress   string
-}
-
-// Define connection structure
-type Connection struct {
-    FromDevice  string
-    ToDevice    string
-    Interface   string
-}
-
-// Function to connect to a device using SSH
-func connectToDevice(device Device) (*expect.GExpect, error) {
-    // Create SSH client configuration
-    sshConfig := &ssh.ClientConfig{
-        User: device.Username,
-        Auth: []ssh.AuthMethod{
-            ssh.Password(device.Password),
-        },
-        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-        Timeout:         5 * time.Second,
-    }
-
-    // Connect to the device
-    conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", device.IP, device.Port), sshConfig)
-    if err != nil {
-        return nil, fmt.Errorf("failed to connect to device %s: %v", device.Alias, err)
-    }
-
-    // Create expect instance to interact with the session
-    e, _, err := expect.SpawnSSH(conn, 10*time.Second) // Pass 'conn' instead of 'session'
-    if err != nil {
-        conn.Close()
-        return nil, fmt.Errorf("failed to start expect session with device %s: %v", device.Alias, err)
-    }
-
-    return e, nil
-}
-
 func TestDeviceConnections(t *testing.T) {
     // Define devices
     devices := map[string]Device{
@@ -131,10 +69,14 @@ func TestDeviceConnections(t *testing.T) {
         }
         defer e.Close()
 
-        // Example: Ping from one device to another using the interface IP
-        e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide timeout duration
-        e.Send(fmt.Sprintf("ping 192.168.30.1\n"))
-        output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) // Provide timeout duration
-        t.Logf("Ping from %s to %s using interface %s - Output:\n%s", fromDevice.Alias, toDevice.Alias, fromInterface, output)
+        // Iterate over each interface and ping the corresponding IP address
+        for interface, ip := range interfaces {
+            t.Logf("Pinging from %s to %s using interface %s - IP: %s", fromDevice.Alias, toDevice.Alias, interface, ip)
+
+            e.Expect(regexp.MustCompile("#"), 10*time.Second) // Wait for the command prompt
+            e.Send(fmt.Sprintf("ping %s\n", ip)) // Send the ping command with the interface IP address
+            output, _, _ := e.Expect(regexp.MustCompile("#"), 10*time.Second) // Wait for the command prompt after ping
+            t.Logf("Ping Output:\n%s", output)
+        }
     }
 }
