@@ -1,0 +1,39 @@
+func main() {
+    // Read testbed file
+    data, err := ioutil.ReadFile("testbed.yaml")
+    if err != nil {
+        log.Fatalf("Error reading file: %v", err)
+    }
+
+    // Parse YAML into Testbed struct
+    var testbed Testbed
+    err = yaml.Unmarshal(data, &testbed)
+    if err != nil {
+        log.Fatalf("Error parsing YAML: %v", err)
+    }
+
+    // Print device information
+    for name, device := range testbed.Devices {
+        fmt.Printf("Device Name: %s\n", name)
+        fmt.Printf("Alias: %s\n", device.Alias)
+        fmt.Printf("IP: %s\n", device.Connections.CLI.IP)
+        fmt.Printf("Port: %d\n", device.Connections.CLI.Port)
+        fmt.Printf("Protocol: %s\n", device.Connections.CLI.Protocol)
+        fmt.Printf("Username: %s\n", device.Credentials.Default.Username)
+        fmt.Printf("OS: %s\n", device.OS)
+        fmt.Printf("Type: %s\n", device.Type)
+        fmt.Println("--------------")
+    }
+
+    // Print topology information
+    fmt.Println("Topology:")
+    for deviceName, interfaces := range testbed.Topology.Interfaces {
+        fmt.Printf("Device: %s\n", deviceName)
+        fmt.Printf("Interfaces:\n")
+        for interfaceName, intf := range interfaces {
+            fmt.Printf("- Interface: %s\n", interfaceName)
+            fmt.Printf("  Link: %s\n", intf.Link)
+            fmt.Printf("  Type: %s\n", intf.Type)
+        }
+    }
+}
