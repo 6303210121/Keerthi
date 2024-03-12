@@ -1,0 +1,39 @@
+package main
+
+type Credentials struct {
+	Default struct {
+		Password string `yaml:"password"`
+		Username string `yaml:"username"`
+	} `yaml:"default"`
+	Enable struct {
+		Password string `yaml:"password"`
+	} `yaml:"enable"`
+}
+
+type Connection struct {
+	IP       string `yaml:"ip"`
+	Port     int    `yaml:"port"`
+	Protocol string `yaml:"protocol"`
+}
+
+type Device struct {
+	Alias       string       `yaml:"alias"`
+	Connections struct {
+		CLI Connection `yaml:"cli"`
+	} `yaml:"connections"`
+	Credentials Credentials `yaml:"credentials"`
+	OS          string      `yaml:"os"`
+	Type        string      `yaml:"type"`
+}
+
+type Topology struct {
+	Interfaces map[string]struct {
+		Link string `yaml:"link"`
+		Type string `yaml:"type"`
+	} `yaml:"interfaces"`
+}
+
+type Testbed struct {
+	Devices  map[string]Device `yaml:"devices"`
+	Topology Topology           `yaml:"topology"`
+}
