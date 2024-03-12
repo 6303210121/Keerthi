@@ -1,0 +1,74 @@
+package main
+
+import (
+    "fmt"
+    "io/ioutil"
+    "log"
+    "gopkg.in/yaml.v2"
+)
+
+type Credentials struct {
+    Default struct {
+        Password string `yaml:"password"`
+        Username string `yaml:"username"`
+    } `yaml:"default"`
+    Enable struct {
+        Password string `yaml:"password"`
+    } `yaml:"enable"`
+}
+
+type Connection struct {
+    IP       string `yaml:"ip"`
+    Port     int    `yaml:"port"`
+    Protocol string `yaml:"protocol"`
+}
+
+type Device struct {
+    Alias       string       `yaml:"alias"`
+    Connections struct {
+        CLI Connection `yaml:"cli"`
+    } `yaml:"connections"`
+    Credentials Credentials `yaml:"credentials"`
+    OS          string      `yaml:"os"`
+    Type        string      `yaml:"type"`
+}
+
+type Topology struct {
+    Interfaces map[string]struct {
+        Link string `yaml:"link"`
+        Type string `yaml:"type"`
+    } `yaml:"interfaces"`
+}
+
+type Testbed struct {
+    Devices   map[string]Device `yaml:"devices"`
+    Topology  Topology           `yaml:"topology"`
+}
+
+func main() {
+    // Read testbed file
+    data, err := ioutil.ReadFile("testbed.yaml")
+    if err != nil {
+        log.Fatalf("Error reading file: %v", err)
+    }
+
+    // Parse YAML into Testbed struct
+    var testbed Testbed
+    err = yaml.Unmarshal(data, &testbed)
+    if err != nil {
+        log.Fatalf("Error parsing YAML: %v", err)
+    }
+
+    // Print device information
+    for name, device := range testbed.Devices {
+        fmt.Printf("Device Name: %s\n", name)
+        fmt.Printf("Alias: %s\n", device.Alias)
+        fmt.Printf("IP: %s\n", device.Connections.CLI.IP)
+        fmt.Printf("Port: %d\n", device.Connections.CLI.Port)
+        fmt.Printf("Protocol: %s\n", device.Connections.CLI.Protocol)
+        fmt.Printf("Username: %s\n", device.Credentials.Default.Username)
+        fmt.Printf("OS: %s\n", device.OS)
+        fmt.Printf("Type: %s\n", device.Type)
+        fmt.Println("--------------")
+    }
+}
