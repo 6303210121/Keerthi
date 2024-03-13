@@ -1,0 +1,42 @@
+
+Here's the equivalent Golang code for the provided Python code:
+func printTestbedInformation(testbed interface{}) {
+  if testbed == nil {
+    fmt.Println("No testbed provided to script launch")
+    return
+  }
+
+  devices := testbed.(map[string]interface{})
+  dut1 := devices["dutl"]
+  dut2 := devices["dut2"]
+  dut3 := devices["dut4"]
+  deviceList := []interface{}{dut1, dut2, dut3}
+  deviceInfo := map[string][]string{}
+
+  for name, device := range devices {
+    fmt.Printf("Device name is %s\n", name)
+    deviceInfo[name] = []string{}
+    for intf, _ := range device.(map[string]interface{}) {
+      fmt.Printf("Interface: %s\n", intf)
+      deviceInfo[name] = append(deviceInfo[name], intf.(string))
+      // Link information not directly obtainable from provided snippet
+    }
+  }
+
+  fmt.Println("Device and interfaces used for acl feature")
+  fmt.Println(deviceInfo)
+}
+
+Explanation:
+ * The code defines a function printTestbedInformation that takes an interface testbed as input.
+ * It checks if the testbed is nil and logs a message if so.
+ * It then type asserts the testbed to a map[string]interface{} to access devices by name.
+ * It extracts the DUTs (dut1, dut2, dut3) and creates a device list.
+ * An empty map deviceInfo is created to store information about devices and interfaces.
+ * The code iterates through the devices in the testbed using a range loop.
+ * For each device, it logs the device name and creates an empty slice in deviceInfo to store interface names.
+ * It iterates through the interfaces of the device (also a map[string]interface{}) using another range loop.
+ * Interface name is logged, and the name is appended to the corresponding device's slice in deviceInfo.
+ * Due to the limited information in the provided snippet, link information is not retrieved.
+ * Finally, the deviceInfo map is printed.
+This Golang code achieves the same functionality as the original Python code, but with the necessary syntax and type conversions for Golang.
